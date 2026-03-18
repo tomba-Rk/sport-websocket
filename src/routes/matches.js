@@ -36,11 +36,13 @@ matchRouter.get('/',async  (req, res) =>{
 
 matchRouter.post('/', async(req, res) =>{
     const parsed = createMatchSchema.safeParse(req.body);
-    const {data:{startTime,endTime,homeScore,awayScore}} = parsed;
+
 
     if(!parsed.success){
         return res.status(400).json({error:'Invalid data',details:JSON.stringify(parsed.error.format())});
     }
+
+    const {data:{startTime,endTime,homeScore,awayScore}} = parsed;
 
     try{
         const [event]= await db.insert(matches).values({
@@ -51,6 +53,10 @@ matchRouter.post('/', async(req, res) =>{
             awayScore:awayScore ?? 0,
             status:getMatchStatus(startTime,endTime),
         }).returning();
+
+        if(res.app.locals.broadcastMatchCreated){
+            res.app.locals.broadcastMatchCreated(event);
+        }
 
         res.status(201).json({data:event});
     } catch(err){
