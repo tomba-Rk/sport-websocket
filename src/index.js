@@ -1,5 +1,7 @@
 // Import the express module (CommonJS)
 const express = require('express');
+const {matchRouter} = require("./routes/matches");
+
 
 // Create an instance of an Express app
 const app = express();
@@ -12,6 +14,7 @@ app.get('/', (req, res) => {
     res.send('Welcome to your Express server!');
 });
 
+app.use('/matches',matchRouter)
 // Define the port the server will listen on
 const PORT = 8000;
 
