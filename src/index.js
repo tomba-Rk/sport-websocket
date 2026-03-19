@@ -3,6 +3,7 @@ const express = require('express');
 const {matchRouter} = require("./routes/matches");
 const http = require("http");
 const {attachWebSocketServer} = require("./ws/server");
+const {securityMiddleware} = require("./arcjet");
 
 
 const PORT = Number(process.env.PORT || 8000);
@@ -19,6 +20,8 @@ app.use(express.json());
 app.get('/', (req, res) => {
     res.send('Welcome to your Express server!');
 });
+
+app.use(securityMiddleware());
 
 app.use('/matches',matchRouter)
 // Define the port the server will listen on
