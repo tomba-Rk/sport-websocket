@@ -1,6 +1,6 @@
-const WebSocket = require('ws');
-const { WebSocketServer } = require('ws');
-const { wsArcjet } = require('../arcjet');
+import {WebSocket, WebSocketServer} from 'ws';
+import {wsArcjet} from "../arcjet";
+
 
 //helper fucntion
 function sendJson(socket, payload) {
@@ -25,39 +25,25 @@ function attachWebSocketServer(server) {
         maxPayload: 1024 * 1024
     });
 
-    // Intercept HTTP Upgrade to gate with Arcjet before handshake
-    server.on('upgrade', async (req, socket, head) => {
-        if (req.url !== '/ws') {
-            return; // Not our path; let other handlers (if any) deal with it.
-        }
+    wss.on('connection', async (socket,req) => {
 
-        // If Arcjet is configured, protect before completing the upgrade
-        if (wsArcjet) {
-            try {
-                const decision = await wsArcjet.protect(req);
-                if (decision.isDenied()) {
-                    // Deny before handshake completes
-                    try {
-                        socket.destroy();
-                    } catch (_) {}
+        if(wsArcjet){
+            try{
+                const decision =await wsArcjet.protect(req)
+                if(decision.isDenied()){
+                    const code = decision.reason.isRateLimit() ? 1013 : 1008;
+                    const reason = decision.reason.isRateLimit() ? 'Too many requests' : 'Access denied';
+
+                    socket.close(code,reason);
                     return;
                 }
-            } catch (e) {
-                console.error('WS upgrade protect error', e);
-                try {
-                    socket.destroy();
-                } catch (_) {}
-                return;
+            }catch(e){
+                console.error('WS connection error',e);
+                socket.close(1011,'Server Security Error');
+                return
             }
         }
 
-        // Proceed with the WebSocket handshake
-        wss.handleUpgrade(req, socket, head, (ws) => {
-            wss.emit('connection', ws, req);
-        });
-    });
-
-    wss.on('connection', (socket, req) => {
         socket.isAlive = true;
 
         socket.on('pong', () => {
