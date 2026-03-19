@@ -19,10 +19,9 @@ function broadcast(wss,payload){
 }
 
 
-export function attachWebSocketServer(server) {
+function attachWebSocketServer(server) {
     const wss = new WebSocketServer({
-        server,
-        path: '/ws',
+        noServer: true,
         maxPayload: 1024 * 1024
     });
 
@@ -73,3 +72,5 @@ export function attachWebSocketServer(server) {
 
     return { broadcastMatchCreated };
 }
+
+module.exports = { attachWebSocketServer };
