@@ -1,5 +1,6 @@
-import {WebSocket, WebSocketServer} from 'ws';
-
+const WebSocket = require('ws');
+const { WebSocketServer } = require('ws');
+const { wsArcjet } = require('../arcjet');
 
 //helper fucntion
 function sendJson(socket, payload) {
@@ -18,14 +19,45 @@ function broadcast(wss,payload){
 }
 
 
-export function attachWebSocketServer(server) {
+function attachWebSocketServer(server) {
     const wss = new WebSocketServer({
-        server,
-        path: '/ws',
+        noServer: true,
         maxPayload: 1024 * 1024
     });
 
-    wss.on('connection', (socket) => {
+    // Intercept HTTP Upgrade to gate with Arcjet before handshake
+    server.on('upgrade', async (req, socket, head) => {
+        if (req.url !== '/ws') {
+            return; // Not our path; let other handlers (if any) deal with it.
+        }
+
+        // If Arcjet is configured, protect before completing the upgrade
+        if (wsArcjet) {
+            try {
+                const decision = await wsArcjet.protect(req);
+                if (decision.isDenied()) {
+                    // Deny before handshake completes
+                    try {
+                        socket.destroy();
+                    } catch (_) {}
+                    return;
+                }
+            } catch (e) {
+                console.error('WS upgrade protect error', e);
+                try {
+                    socket.destroy();
+                } catch (_) {}
+                return;
+            }
+        }
+
+        // Proceed with the WebSocket handshake
+        wss.handleUpgrade(req, socket, head, (ws) => {
+            wss.emit('connection', ws, req);
+        });
+    });
+
+    wss.on('connection', (socket, req) => {
         socket.isAlive = true;
 
         socket.on('pong', () => {
@@ -54,3 +86,5 @@ export function attachWebSocketServer(server) {
 
     return { broadcastMatchCreated };
 }
+
+module.exports = { attachWebSocketServer };
